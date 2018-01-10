@@ -1,0 +1,183 @@
+---
+title: "Wine Project Writeup"
+author: "Mounika Narayanan"
+date: "12/16/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Read in data
+```{r}
+setwd("/Users/mnarayan/Documents/STATS_101A")
+training <- read.csv("Wine 2017 Training Complete.csv", stringsAsFactors = F, header = T)
+testing <- read.csv("Wine 2017 Testing.csv", stringsAsFactors = F, header = T)
+```
+
+## Splitting the data into 70 training-30 testing data sets
+```{r}
+## 70% of the sample size 
+smp_size <- floor(0.70*nrow(training))
+## set the seed to make partion reproducible (make sure odd and >10000)
+set.seed(13457)
+train_ind <- sample(seq_len(nrow(training)), size = smp_size)
+train <- training[train_ind,]
+test <- training[-train_ind,]
+```
+
+## VIF of independent values before interaction is added
+```{r}
+library(car)
+nointeraction <- lm(Quality ~ alcohol + volatile.acidity + sulphates + residual.sugar + free.sulfur.dioxide + total.sulfur.dioxide + pH + fixed.acidity + citric.acid + chlorides, data = train)
+vif(nointeraction)
+```
+
+## Added all interactions
+```{r}
+newest <- lm(Quality ~ 
+               volatile.acidity + residual.sugar + alcohol + pH + sulphates + free.sulfur.dioxide + fixed.acidity + total.sulfur.dioxide + citric.acid 
+             +
+               density:Wine.Color + volatile.acidity:Wine.Color + residual.sugar:Wine.Color + alcohol:Wine.Color + pH:Wine.Color + sulphates:Wine.Color + free.sulfur.dioxide:Wine.Color + fixed.acidity:Wine.Color + total.sulfur.dioxide:Wine.Color + citric.acid:Wine.Color
+             +
+               citric.acid:total.sulfur.dioxide + citric.acid:fixed.acidity + citric.acid:free.sulfur.dioxide + citric.acid:sulphates + citric.acid:pH + citric.acid:alcohol + citric.acid:residual.sugar + citric.acid:volatile.acidity + citric.acid:density
+             +
+               total.sulfur.dioxide:fixed.acidity + total.sulfur.dioxide:free.sulfur.dioxide + total.sulfur.dioxide:sulphates + total.sulfur.dioxide:density + total.sulfur.dioxide:pH + total.sulfur.dioxide:alcohol + total.sulfur.dioxide:residual.sugar + total.sulfur.dioxide:volatile.acidity + total.sulfur.dioxide:Wine.Color
+             + 
+               fixed.acidity:free.sulfur.dioxide + fixed.acidity:sulphates + fixed.acidity:pH + fixed.acidity:alcohol + fixed.acidity:residual.sugar + fixed.acidity:volatile.acidity + fixed.acidity:density
+             +
+               free.sulfur.dioxide:sulphates + free.sulfur.dioxide:pH + free.sulfur.dioxide:alcohol + free.sulfur.dioxide:residual.sugar + free.sulfur.dioxide:volatile.acidity + free.sulfur.dioxide:density
+             +
+               sulphates:pH + sulphates:alcohol + sulphates:residual.sugar + sulphates:volatile.acidity + sulphates:density
+             +
+               pH:alcohol + pH:residual.sugar + pH:volatile.acidity + pH:density
+             +
+               alcohol:residual.sugar + alcohol:volatile.acidity + alcohol:density
+             +
+               residual.sugar:volatile.acidity + residual.sugar:density
+             +
+               volatile.acidity:density, data = train)
+summary(newest)
+par(mfrow=c(2,2))
+plot(newest)
+
+# MMPS
+par(mfrow=c(2,2))
+mmp(newest, train$volatile.acidity)
+mmp(newest, train$density)
+mmp(newest, train$citric.acid)
+mmp(newest, train$total.sulfur.dioxide)
+par(mfrow=c(2,2))
+mmp(newest, train$fixed.acidity)
+mmp(newest, train$free.sulfur.dioxide)
+mmp(newest, train$sulphates)
+mmp(newest, train$pH)
+par(mfrow=c(2,2))
+mmp(newest, train$alcohol)
+mmp(newest, train$residual.sugar)
+```
+
+## Forward/Backward AIC/BIC
+```{r}
+# backward AIC
+# backAIC <- step(newest, direction = "backward", data=train)
+newbackAIC <- lm(Quality ~ volatile.acidity + residual.sugar + alcohol + pH + 
+    sulphates + free.sulfur.dioxide + fixed.acidity + total.sulfur.dioxide + 
+    citric.acid + density:Wine.Color + residual.sugar:Wine.Color + 
+    pH:Wine.Color + free.sulfur.dioxide:Wine.Color + total.sulfur.dioxide:Wine.Color + 
+    fixed.acidity:citric.acid + free.sulfur.dioxide:citric.acid + 
+    sulphates:citric.acid + pH:citric.acid + alcohol:citric.acid + 
+    residual.sugar:citric.acid + citric.acid:density + fixed.acidity:total.sulfur.dioxide + 
+    free.sulfur.dioxide:total.sulfur.dioxide + sulphates:total.sulfur.dioxide + 
+    residual.sugar:total.sulfur.dioxide + pH:fixed.acidity + 
+    volatile.acidity:fixed.acidity + sulphates:free.sulfur.dioxide + 
+    residual.sugar:free.sulfur.dioxide + volatile.acidity:free.sulfur.dioxide + 
+    volatile.acidity:sulphates + alcohol:pH + residual.sugar:pH + 
+    residual.sugar:alcohol + volatile.acidity:alcohol + alcohol:density + 
+    volatile.acidity:residual.sugar + residual.sugar:density + 
+    volatile.acidity:density, data=train)
+
+# backward BIC
+# n <- length(newest$residuals)
+# backBIC <- step(newest, direction="backward", data=train, k=log(n))
+newbackBIC <- lm(Quality ~ volatile.acidity + residual.sugar + alcohol + pH + 
+    sulphates + free.sulfur.dioxide + fixed.acidity + total.sulfur.dioxide + 
+    citric.acid + density:Wine.Color + pH:Wine.Color + total.sulfur.dioxide:Wine.Color + 
+    residual.sugar:citric.acid + free.sulfur.dioxide:total.sulfur.dioxide + 
+    sulphates:total.sulfur.dioxide + residual.sugar:total.sulfur.dioxide + 
+    pH:fixed.acidity + volatile.acidity:fixed.acidity + residual.sugar:pH + 
+    residual.sugar:alcohol + volatile.acidity:alcohol + alcohol:density + 
+    volatile.acidity:residual.sugar + volatile.acidity:density, data=train)
+
+# forward AIC
+# init <- lm(Quality~1, data=train)
+# forwardAIC <- step(init, scope = list(lower=~1, upper=~ volatile.acidity + residual.sugar + alcohol + pH + sulphates + free.sulfur.dioxide + fixed.acidity + total.sulfur.dioxide + citric.acid + density:Wine.Color + volatile.acidity:Wine.Color + residual.sugar:Wine.Color + alcohol:Wine.Color + pH:Wine.Color + sulphates:Wine.Color + free.sulfur.dioxide:Wine.Color + fixed.acidity:Wine.Color + total.sulfur.dioxide:Wine.Color + citric.acid:Wine.Color + citric.acid:total.sulfur.dioxide + citric.acid:fixed.acidity + citric.acid:free.sulfur.dioxide + citric.acid:sulphates + citric.acid:pH + citric.acid:alcohol + citric.acid:residual.sugar + citric.acid:volatile.acidity + citric.acid:density + total.sulfur.dioxide:fixed.acidity + total.sulfur.dioxide:free.sulfur.dioxide + total.sulfur.dioxide:sulphates + total.sulfur.dioxide:density + total.sulfur.dioxide:pH + total.sulfur.dioxide:alcohol + total.sulfur.dioxide:residual.sugar + total.sulfur.dioxide:volatile.acidity + total.sulfur.dioxide:Wine.Color +  fixed.acidity:free.sulfur.dioxide + fixed.acidity:sulphates + fixed.acidity:pH + fixed.acidity:alcohol + fixed.acidity:residual.sugar + fixed.acidity:volatile.acidity + fixed.acidity:density + free.sulfur.dioxide:sulphates + free.sulfur.dioxide:pH + free.sulfur.dioxide:alcohol + free.sulfur.dioxide:residual.sugar + free.sulfur.dioxide:volatile.acidity + free.sulfur.dioxide:density + sulphates:pH + sulphates:alcohol + sulphates:residual.sugar + sulphates:volatile.acidity + sulphates:density + pH:alcohol + pH:residual.sugar + pH:volatile.acidity + pH:density + alcohol:residual.sugar + alcohol:volatile.acidity + alcohol:density + residual.sugar:volatile.acidity + residual.sugar:density + volatile.acidity:density), direction="forward", data=train)
+newforwAIC <- lm(Quality ~ alcohol + volatile.acidity + sulphates + residual.sugar + 
+    free.sulfur.dioxide + total.sulfur.dioxide + pH + fixed.acidity + 
+    alcohol:volatile.acidity + volatile.acidity:Wine.Color + 
+    alcohol:free.sulfur.dioxide + sulphates:total.sulfur.dioxide + 
+    sulphates:Wine.Color + residual.sugar:total.sulfur.dioxide + 
+    free.sulfur.dioxide:total.sulfur.dioxide + alcohol:pH + free.sulfur.dioxide:Wine.Color + 
+    residual.sugar:free.sulfur.dioxide + residual.sugar:density + 
+    total.sulfur.dioxide:pH + residual.sugar:pH + alcohol:residual.sugar + 
+    alcohol:density + pH:fixed.acidity + fixed.acidity:Wine.Color + 
+    free.sulfur.dioxide:fixed.acidity + volatile.acidity:density + 
+    pH:Wine.Color + Wine.Color:density + volatile.acidity:pH + 
+    sulphates:free.sulfur.dioxide, data=train)
+
+# forward BIC
+#forwardBIC <- step(init, scope = list(lower=~1, upper=~ volatile.acidity + residual.sugar + alcohol + pH + sulphates + free.sulfur.dioxide + fixed.acidity + total.sulfur.dioxide + citric.acid+ density:Wine.Color + volatile.acidity:Wine.Color + residual.sugar:Wine.Color + alcohol:Wine.Color + pH:Wine.Color + sulphates:Wine.Color + free.sulfur.dioxide:Wine.Color + fixed.acidity:Wine.Color + total.sulfur.dioxide:Wine.Color + citric.acid:Wine.Color + citric.acid:total.sulfur.dioxide + citric.acid:fixed.acidity + citric.acid:free.sulfur.dioxide + citric.acid:sulphates + citric.acid:pH + citric.acid:alcohol + citric.acid:residual.sugar + citric.acid:volatile.acidity + citric.acid:density + total.sulfur.dioxide:fixed.acidity + total.sulfur.dioxide:free.sulfur.dioxide + total.sulfur.dioxide:sulphates + total.sulfur.dioxide:density + total.sulfur.dioxide:pH + total.sulfur.dioxide:alcohol + total.sulfur.dioxide:residual.sugar + total.sulfur.dioxide:volatile.acidity + total.sulfur.dioxide:Wine.Color + fixed.acidity:free.sulfur.dioxide + fixed.acidity:sulphates + fixed.acidity:pH + fixed.acidity:alcohol + fixed.acidity:residual.sugar + fixed.acidity:volatile.acidity + fixed.acidity:density + free.sulfur.dioxide:sulphates + free.sulfur.dioxide:pH + free.sulfur.dioxide:alcohol + free.sulfur.dioxide:residual.sugar + free.sulfur.dioxide:volatile.acidity + free.sulfur.dioxide:density + sulphates:pH + sulphates:alcohol + sulphates:residual.sugar + sulphates:volatile.acidity + sulphates:density + pH:alcohol + pH:residual.sugar + pH:volatile.acidity + pH:density + alcohol:residual.sugar + alcohol:volatile.acidity + alcohol:density + residual.sugar:volatile.acidity + residual.sugar:density + volatile.acidity:density), direction="forward", data=train, k=log(n))
+
+newforwBIC <- lm(Quality ~ alcohol + volatile.acidity + sulphates + residual.sugar + 
+    free.sulfur.dioxide + total.sulfur.dioxide + alcohol:volatile.acidity + 
+    volatile.acidity:Wine.Color + alcohol:free.sulfur.dioxide + 
+    sulphates:total.sulfur.dioxide + sulphates:Wine.Color + residual.sugar:total.sulfur.dioxide + 
+    free.sulfur.dioxide:total.sulfur.dioxide, data=train)
+
+# calc SSE function
+calc_SSE <- function(mymodel, testing_data, transformation)
+{
+  y_hat <- predict(mymodel, testing_data[,c(2:13)])
+  y_hat <- y_hat^(1/transformation)
+  SSE <- sum((testing_data$Quality - y_hat)^2)
+  return(SSE*3000/2100)
+}
+
+# COMPARE SSEs
+calc_SSE(newbackAIC, test, 1) # 4585.088
+calc_SSE(newforwAIC, test, 1) # 4554.559
+calc_SSE(newbackBIC, test, 1) # 4576.628
+calc_SSE(newforwBIC, test, 1) # 4565.236
+```
+
+## Final model (lowest SSE = newforwAIC)
+```{r}
+# diagnostics of model
+summary(newforwAIC)
+par(mfrow=c(2,2))
+plot(newforwAIC)
+
+# delete bad leverage
+train<-train[-453,]
+finalmodel <- lm(Quality ~ alcohol + volatile.acidity + sulphates + residual.sugar + 
+                   free.sulfur.dioxide + total.sulfur.dioxide + pH + fixed.acidity + 
+                   alcohol:volatile.acidity + volatile.acidity:Wine.Color + 
+                   alcohol:free.sulfur.dioxide + sulphates:total.sulfur.dioxide + 
+                   sulphates:Wine.Color + residual.sugar:total.sulfur.dioxide + 
+                   free.sulfur.dioxide:total.sulfur.dioxide + alcohol:pH + free.sulfur.dioxide:Wine.Color+
+                   residual.sugar:free.sulfur.dioxide + residual.sugar:density + 
+                   total.sulfur.dioxide:pH + residual.sugar:pH + alcohol:residual.sugar + 
+                   alcohol:density + pH:fixed.acidity + fixed.acidity:Wine.Color + 
+                   free.sulfur.dioxide:fixed.acidity + volatile.acidity:density + 
+                   pH:Wine.Color + Wine.Color:density + volatile.acidity:pH + 
+                   sulphates:free.sulfur.dioxide, data=train)
+summary(finalmodel)
+par(mfrow=c(2,2))
+plot(finalmodel)
+
+# prediction values using 3000 values of testing data (use to write csv)
+finalpred<-predict(newforwAIC, testing)
+results<-as.data.frame(cbind(1:3000, finalpred))
+names(results)<-c("Case_number", "Y_hat")
+```
